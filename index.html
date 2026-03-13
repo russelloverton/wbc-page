@@ -1,0 +1,911 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WBC 2026 Bracket Challenge</title>
+<meta name="description" content="Pick your 2026 World Baseball Classic bracket predictions">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0b0e1a;
+    --surface: rgba(255,255,255,0.04);
+    --surface-hover: rgba(255,255,255,0.08);
+    --glass: rgba(255,255,255,0.06);
+    --glass-border: rgba(255,255,255,0.10);
+    --text: #e8eaf0;
+    --text-muted: #8b90a5;
+    --gold: #f0b42a;
+    --gold-glow: rgba(240,180,42,0.25);
+    --red: #e53e3e;
+    --green: #38a169;
+    --accent: #6366f1;
+    --accent-glow: rgba(99,102,241,0.3);
+    --correct: #22c55e;
+    --wrong: #ef4444;
+    --radius: 12px;
+    --transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    line-height: 1.5;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: -50%;
+    width: 200%; height: 200%;
+    background: radial-gradient(circle at 30% 20%, rgba(99,102,241,0.08) 0%, transparent 50%),
+                radial-gradient(circle at 70% 80%, rgba(240,180,42,0.06) 0%, transparent 50%);
+    z-index: -1;
+    pointer-events: none;
+  }
+
+  .container { max-width: 1200px; margin: 0 auto; padding: 24px 20px 60px; }
+
+  /* Header */
+  .header { text-align: center; margin-bottom: 28px; }
+  .header h1 {
+    font-size: 2.4rem; font-weight: 900; letter-spacing: -1px;
+    background: linear-gradient(135deg, var(--gold), #ffd97d, var(--gold));
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .header p { color: var(--text-muted); margin-top: 4px; font-size: 0.95rem; }
+
+  /* Cards */
+  .card {
+    background: var(--glass); border: 1px solid var(--glass-border);
+    border-radius: var(--radius); padding: 24px; margin-bottom: 24px;
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  }
+  .card h2 { font-size: 1.15rem; font-weight: 700; margin-bottom: 16px; color: var(--gold); }
+
+  /* ---- Leaderboard ---- */
+  .lb-table { width: 100%; border-collapse: collapse; }
+  .lb-table thead th {
+    text-align: left; padding: 8px 16px; font-size: 0.72rem;
+    text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-muted);
+    border-bottom: 1px solid var(--glass-border);
+  }
+  .lb-table tbody tr {
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    cursor: pointer; transition: var(--transition);
+  }
+  .lb-table tbody tr:hover { background: var(--surface-hover); }
+  .lb-table td { padding: 12px 16px; font-weight: 500; }
+  .lb-table td:last-child { font-weight: 800; text-align: right; }
+  .lb-table tr.first td { color: var(--gold); }
+  .lb-table .rank { width: 40px; font-weight: 700; color: var(--text-muted); }
+  .lb-table .no-picks { color: var(--text-muted); font-style: italic; font-weight: 400; }
+
+  /* User bar */
+  .user-bar { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; margin-bottom: 28px; }
+  .user-btn {
+    padding: 8px 18px; border: 1px solid var(--glass-border); border-radius: 999px;
+    background: var(--surface); color: var(--text-muted); font-family: inherit;
+    font-weight: 600; font-size: 0.88rem; cursor: pointer; transition: var(--transition);
+  }
+  .user-btn:hover { background: var(--surface-hover); color: var(--text); }
+  .user-btn.active {
+    background: linear-gradient(135deg, var(--accent), #818cf8);
+    color: #fff; border-color: transparent; box-shadow: 0 4px 20px var(--accent-glow);
+  }
+  .user-btn.lb-btn { border-color: var(--gold-glow); color: var(--gold); }
+  .user-btn.lb-btn:hover { background: var(--gold-glow); color: #fff; }
+  .user-btn.lb-btn.active {
+    background: linear-gradient(135deg, var(--gold), #d97706); box-shadow: 0 4px 20px var(--gold-glow);
+  }
+
+  /* Admin */
+  .admin-bar { display: none; justify-content: center; margin-bottom: 20px; }
+  .admin-bar.show { display: flex; }
+  .admin-toggle {
+    display: flex; align-items: center; gap: 10px; padding: 8px 20px;
+    border-radius: 999px; background: var(--surface); border: 1px solid var(--glass-border);
+    cursor: pointer; transition: var(--transition); font-family: inherit;
+    font-size: 0.88rem; color: var(--text-muted); font-weight: 600;
+  }
+  .admin-toggle:hover { background: var(--surface-hover); }
+  .admin-toggle.active {
+    background: linear-gradient(135deg, var(--red), #f56565);
+    color: #fff; border-color: transparent;
+  }
+
+  /* Bracket */
+  .bracket { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: 12px; align-items: center; }
+  .round { display: flex; flex-direction: column; gap: 16px; }
+  .round-label {
+    text-align: center; font-size: 0.75rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-muted); margin-bottom: 4px;
+  }
+  .matchup { background: var(--surface); border: 1px solid var(--glass-border); border-radius: var(--radius); overflow: hidden; }
+  .team {
+    display: flex; align-items: center; gap: 8px; padding: 10px 12px;
+    cursor: pointer; transition: var(--transition); font-weight: 500; font-size: 0.88rem;
+  }
+  .team:first-child { border-bottom: 1px solid var(--glass-border); }
+  .team:hover { background: var(--surface-hover); }
+  .team.selected { background: rgba(99,102,241,0.15); border-left: 3px solid var(--accent); }
+  .team.correct { border-left: 3px solid var(--correct); background: rgba(34,197,94,0.08); }
+  .team.wrong { border-left: 3px solid var(--wrong); opacity: 0.5; }
+  .team .seed { font-size: 0.65rem; color: var(--text-muted); font-weight: 800; width: 14px; text-align: center; }
+  .team .flag { font-size: 1.2rem; flex-shrink: 0; }
+  .team .name { flex: 1; }
+  .team .result-icon { font-size: 0.8rem; }
+
+  .score-input {
+    width: 40px; padding: 4px 2px; text-align: center; border-radius: 6px;
+    border: 1px solid var(--glass-border); background: rgba(0,0,0,0.3);
+    color: var(--text); font-family: inherit; font-size: 0.85rem; font-weight: 700;
+    outline: none; transition: var(--transition); flex-shrink: 0;
+    -webkit-appearance: none; -moz-appearance: textfield; appearance: none;
+  }
+  .score-input::-webkit-inner-spin-button,
+  .score-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+  .score-input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-glow); }
+  .score-input::placeholder { color: var(--text-muted); opacity: 0.4; }
+
+  .connector { width: 28px; }
+
+  /* Champion */
+  .champion-box {
+    text-align: center; margin-top: 16px; padding: 20px;
+    border: 2px dashed var(--glass-border); border-radius: var(--radius);
+    min-height: 70px; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 4px;
+  }
+  .champion-box .label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-muted); }
+  .champion-box .champ-name { font-size: 1.3rem; font-weight: 800; color: var(--gold); }
+  .champion-box.filled {
+    border-color: var(--gold); background: rgba(240,180,42,0.06);
+    box-shadow: 0 0 30px rgba(240,180,42,0.1);
+  }
+
+  /* Tiebreakers */
+  .tiebreaker-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .tb-field label {
+    display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-muted);
+    margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .tb-field input {
+    width: 100%; padding: 10px 14px; border-radius: 8px;
+    border: 1px solid var(--glass-border); background: var(--surface);
+    color: var(--text); font-family: inherit; font-size: 1rem; font-weight: 600;
+    transition: var(--transition); outline: none;
+  }
+  .tb-field input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+  .tb-field input::placeholder { color: var(--text-muted); opacity: 0.5; }
+  .mvp-field { grid-column: 1 / -1; }
+
+  /* Custom Select For MVP */
+  .custom-select { position: relative; width: 100%; }
+  .cs-dropdown {
+    position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+    background: #151828; border: 1px solid var(--glass-border); border-radius: 8px;
+    max-height: 240px; overflow-y: auto; z-index: 1000;
+    display: none; box-shadow: 0 10px 40px rgba(0,0,0,0.7);
+  }
+  .cs-dropdown.show { display: block; }
+  .cs-item {
+    padding: 10px 14px; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.05);
+    display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 0.95rem;
+  }
+  .cs-item:last-child { border-bottom: none; }
+  .cs-item:hover { background: var(--surface-hover); }
+  .cs-team { font-size: 0.75rem; color: var(--text-muted); font-weight: 800; width: 50px; }
+
+  /* Scoring config */
+  .scoring-grid {
+    display: grid; grid-template-columns: auto 1fr 1fr 1fr; gap: 8px 12px; align-items: center;
+  }
+  .scoring-grid .sg-label { font-size: 0.78rem; font-weight: 600; color: var(--text-muted); white-space: nowrap; }
+  .scoring-grid .sg-header {
+    font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1px; color: var(--text-muted); text-align: center;
+  }
+  .scoring-grid input {
+    width: 100%; padding: 6px 8px; border-radius: 6px;
+    border: 1px solid var(--glass-border); background: var(--surface);
+    color: var(--text); font-family: inherit; font-size: 0.9rem; font-weight: 600;
+    text-align: center; outline: none; transition: var(--transition);
+  }
+  .scoring-grid input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-glow); }
+
+  .actuals-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 16px; }
+
+  /* Save toast */
+  .save-toast {
+    position: fixed; bottom: 24px; right: 24px;
+    background: linear-gradient(135deg, var(--green), #2dd4bf);
+    color: #fff; padding: 10px 20px; border-radius: 999px;
+    font-family: inherit; font-size: 0.85rem; font-weight: 700;
+    box-shadow: 0 4px 20px rgba(34,197,94,0.3);
+    opacity: 0; transform: translateY(10px);
+    transition: opacity 0.3s, transform 0.3s;
+    pointer-events: none; z-index: 100;
+  }
+  .save-toast.show { opacity: 1; transform: translateY(0); }
+
+  /* Responsive */
+  @media (max-width: 800px) {
+    .bracket { grid-template-columns: 1fr; gap: 0; }
+    .connector { display: none; }
+    .tiebreaker-grid, .actuals-row { grid-template-columns: 1fr; }
+    .header h1 { font-size: 1.8rem; }
+    .scoring-grid { grid-template-columns: auto 1fr 1fr 1fr; gap: 6px 8px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <h1>⚾ WBC 2026 Bracket Challenge</h1>
+    <p>Pick your winners for the knockout rounds!</p>
+  </div>
+
+  <!-- User tabs -->
+  <div class="user-bar" id="userBar"></div>
+
+  <!-- Leaderboard -->
+  <div class="card" id="leaderboardCard">
+    <h2>🏆 Leaderboard</h2>
+    <div id="leaderboard"><div style="text-align:center;color:var(--text-muted);padding:20px;">Loading…</div></div>
+  </div>
+
+  <!-- Admin toggle -->
+  <div class="admin-bar" id="adminBar">
+    <button class="admin-toggle" id="adminToggle" onclick="toggleAdmin()">🔑 Enter Actual Results</button>
+  </div>
+
+  <!-- Bracket -->
+  <div class="card" id="bracketCard" style="display:none;">
+    <h2 id="bracketTitle">🏆 Knockout Bracket</h2>
+    <div class="bracket" id="bracket"></div>
+    <div class="champion-box" id="championBox">
+      <span class="label">Champion</span>
+      <span class="champ-name" id="champName">—</span>
+    </div>
+  </div>
+
+  <!-- Tiebreakers -->
+  <div class="card" id="tiebreakerCard" style="display:none;">
+    <h2>🎯 Tiebreakers</h2>
+    <div class="tiebreaker-grid">
+      <div class="tb-field mvp-field">
+        <label>Tournament MVP</label>
+        <div class="custom-select">
+          <input type="text" id="tbMVP" placeholder="Search for a player..." autocomplete="off" 
+                 onfocus="openMvpDropdown('tbMVP', 'tbMvpDropdown')" 
+                 oninput="filterMvpDropdown(this.value, 'tbMvpDropdown', 'tbMVP')" 
+                 onblur="validateMvpInput('tbMVP')">
+          <div class="cs-dropdown" id="tbMvpDropdown"></div>
+        </div>
+      </div>
+      <div class="tb-field">
+        <label>Total Home Runs (Knockout Rounds)</label>
+        <input type="number" id="tbHR" min="0" placeholder="0" oninput="saveTiebreakers()">
+      </div>
+      <div class="tb-field">
+        <label>Total Runs (Knockout Rounds)</label>
+        <input type="number" id="tbRuns" min="0" placeholder="0" oninput="saveTiebreakers()">
+      </div>
+    </div>
+  </div>
+
+  <!-- Scoring Config (Russell only) -->
+  <div class="card" id="scoringCard" style="display:none;">
+    <h2>⚙️ Scoring Settings</h2>
+    <div class="scoring-grid" id="scoringGrid">
+      <div></div>
+      <div class="sg-header">Quarterfinals</div>
+      <div class="sg-header">Semifinals</div>
+      <div class="sg-header">Final</div>
+
+      <div class="sg-label">Correct Winner</div>
+      <input id="sc_correctQF" type="number" step="any" oninput="saveScoring()">
+      <input id="sc_correctSF" type="number" step="any" oninput="saveScoring()">
+      <input id="sc_correctF" type="number" step="any" oninput="saveScoring()">
+
+      <div class="sg-label">Winner Score Penalty</div>
+      <input id="sc_winnerDiffQF" type="number" step="any" oninput="saveScoring()">
+      <input id="sc_winnerDiffSF" type="number" step="any" oninput="saveScoring()">
+      <input id="sc_winnerDiffF" type="number" step="any" oninput="saveScoring()">
+
+      <div class="sg-label">Loser Score Penalty</div>
+      <input id="sc_loserDiffQF" type="number" step="any" oninput="saveScoring()">
+      <input id="sc_loserDiffSF" type="number" step="any" oninput="saveScoring()">
+      <input id="sc_loserDiffF" type="number" step="any" oninput="saveScoring()">
+    </div>
+
+    <div class="actuals-row" style="margin-top:20px;">
+      <div class="tb-field">
+        <label>Correct MVP Bonus</label>
+        <input type="number" id="sc_correctMVP" step="any" oninput="saveScoring()">
+      </div>
+      <div class="tb-field">
+        <label>Total Runs Penalty (per run off)</label>
+        <input type="number" id="sc_totalRunsDiff" step="any" oninput="saveScoring()">
+      </div>
+      <div class="tb-field">
+        <label>Total HR Penalty (per HR off)</label>
+        <input type="number" id="sc_totalHRDiff" step="any" oninput="saveScoring()">
+      </div>
+    </div>
+
+    <div class="actuals-row">
+      <div class="tb-field">
+        <label>Actual Tournament MVP</label>
+        <div class="custom-select">
+          <input type="text" id="actualMVP" placeholder="Search..." autocomplete="off"
+                 onfocus="openMvpDropdown('actualMVP', 'actualMvpDropdown')" 
+                 oninput="filterMvpDropdown(this.value, 'actualMvpDropdown', 'actualMVP')" 
+                 onblur="validateMvpInput('actualMVP')">
+          <div class="cs-dropdown" id="actualMvpDropdown"></div>
+        </div>
+      </div>
+      <div class="tb-field">
+        <label>Actual Total Home Runs</label>
+        <input type="number" id="actualTotalHR" min="0" oninput="saveActualTotals()">
+      </div>
+      <div class="tb-field">
+        <label>Calculated Total Runs</label>
+        <input type="number" id="actualTotalRunsCalc" disabled style="opacity:0.6; cursor:not-allowed;">
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="save-toast" id="saveToast">✓ Saved</div>
+
+<script>
+// ===== DATA =====
+const USERS = ['Russell','Mommy','Daddy','Margaret','Caroline','Ball','Grandmother'];
+const TEAMS = {
+  DR:  { name: 'Dominican Republic', flag: '🇩🇴', short: 'DR' },
+  KOR: { name: 'Korea',             flag: '🇰🇷', short: 'KOR' },
+  USA: { name: 'United States',     flag: '🇺🇸', short: 'USA' },
+  CAN: { name: 'Canada',            flag: '🇨🇦', short: 'CAN' },
+  ITA: { name: 'Italy',             flag: '🇮🇹', short: 'ITA' },
+  PR:  { name: 'Puerto Rico',       flag: '🇵🇷', short: 'PR' },
+  JPN: { name: 'Japan',             flag: '🇯🇵', short: 'JPN' },
+  VEN: { name: 'Venezuela',         flag: '🇻🇪', short: 'VEN' },
+};
+const QF = [
+  [{k:'DR',s:1}, {k:'KOR',s:2}],
+  [{k:'USA',s:1}, {k:'CAN',s:2}],
+  [{k:'ITA',s:2}, {k:'PR',s:1}],
+  [{k:'JPN',s:1}, {k:'VEN',s:2}]
+];
+
+const MVP_PLAYERS = [
+  // USA
+  { name: "Aaron Judge", team: "USA", flag: "🇺🇸" },
+  { name: "Bryce Harper", team: "USA", flag: "🇺🇸" },
+  { name: "Paul Skenes", team: "USA", flag: "🇺🇸" },
+  { name: "Tarik Skubal", team: "USA", flag: "🇺🇸" },
+  { name: "Bobby Witt Jr.", team: "USA", flag: "🇺🇸" },
+  { name: "Gunnar Henderson", team: "USA", flag: "🇺🇸" },
+  { name: "Paul Goldschmidt", team: "USA", flag: "🇺🇸" },
+  { name: "Kyle Schwarber", team: "USA", flag: "🇺🇸" },
+  { name: "Logan Webb", team: "USA", flag: "🇺🇸" },
+  { name: "Alex Bregman", team: "USA", flag: "🇺🇸" },
+  { name: "Byron Buxton", team: "USA", flag: "🇺🇸" },
+  { name: "Pete Crow-Armstrong", team: "USA", flag: "🇺🇸" },
+  { name: "Roman Anthony", team: "USA", flag: "🇺🇸" },
+  { name: "Cal Raleigh", team: "USA", flag: "🇺🇸" },
+  { name: "Will Smith", team: "USA", flag: "🇺🇸" },
+  { name: "Ernie Clement", team: "USA", flag: "🇺🇸" },
+  { name: "Brice Turang", team: "USA", flag: "🇺🇸" },
+  { name: "David Bednar", team: "USA", flag: "🇺🇸" },
+  { name: "Matthew Boyd", team: "USA", flag: "🇺🇸" },
+  { name: "Garrett Cleavinger", team: "USA", flag: "🇺🇸" },
+  { name: "Clay Holmes", team: "USA", flag: "🇺🇸" },
+  { name: "Griffin Jax", team: "USA", flag: "🇺🇸" },
+  { name: "Brad Keller", team: "USA", flag: "🇺🇸" },
+  { name: "Clayton Kershaw", team: "USA", flag: "🇺🇸" },
+  { name: "Nolan McLean", team: "USA", flag: "🇺🇸" },
+  { name: "Mason Miller", team: "USA", flag: "🇺🇸" },
+  { name: "Gabe Speier", team: "USA", flag: "🇺🇸" },
+  { name: "Michael Wacha", team: "USA", flag: "🇺🇸" },
+  { name: "Garrett Whitlock", team: "USA", flag: "🇺🇸" },
+  { name: "Ryan Yarbrough", team: "USA", flag: "🇺🇸" },
+  // Japan (JPN)
+  { name: "Shohei Ohtani", team: "JPN", flag: "🇯🇵" },
+  { name: "Yoshinobu Yamamoto", team: "JPN", flag: "🇯🇵" },
+  { name: "Munetaka Murakami", team: "JPN", flag: "🇯🇵" },
+  { name: "Kazuma Okamoto", team: "JPN", flag: "🇯🇵" },
+  { name: "Seiya Suzuki", team: "JPN", flag: "🇯🇵" },
+  { name: "Kensuke Kondo", team: "JPN", flag: "🇯🇵" },
+  { name: "Tomoyuki Sugano", team: "JPN", flag: "🇯🇵" },
+  { name: "Yusei Kikuchi", team: "JPN", flag: "🇯🇵" },
+  { name: "Yuki Matsui", team: "JPN", flag: "🇯🇵" },
+  { name: "Kaito Kozono", team: "JPN", flag: "🇯🇵" },
+  { name: "Seishiro Sakamoto", team: "JPN", flag: "🇯🇵" },
+  { name: "Yuhei Nakamura", team: "JPN", flag: "🇯🇵" },
+  { name: "Koki Kitayama", team: "JPN", flag: "🇯🇵" },
+  { name: "Hiroto Takahashi", team: "JPN", flag: "🇯🇵" },
+  { name: "Ryuhei Sotani", team: "JPN", flag: "🇯🇵" },
+  // Dominican Republic (DR)
+  { name: "Juan Soto", team: "DR", flag: "🇩🇴" },
+  { name: "Vladimir Guerrero Jr.", team: "DR", flag: "🇩🇴" },
+  { name: "Manny Machado", team: "DR", flag: "🇩🇴" },
+  { name: "Julio Rodríguez", team: "DR", flag: "🇩🇴" },
+  { name: "Ketel Marte", team: "DR", flag: "🇩🇴" },
+  { name: "Sandy Alcántara", team: "DR", flag: "🇩🇴" },
+  { name: "Jeremy Peña", team: "DR", flag: "🇩🇴" },
+  { name: "Geraldo Perdomo", team: "DR", flag: "🇩🇴" },
+  { name: "Christopher Sánchez", team: "DR", flag: "🇩🇴" },
+  { name: "Junior Caminero", team: "DR", flag: "🇩🇴" },
+  { name: "Austin Wells", team: "DR", flag: "🇩🇴" },
+  { name: "Miguel Amaya", team: "DR", flag: "🇩🇴" },
+  // Puerto Rico (PR)
+  { name: "Nolan Arenado", team: "PR", flag: "🇵🇷" },
+  { name: "Edwin Díaz", team: "PR", flag: "🇵🇷" },
+  { name: "José Berríos", team: "PR", flag: "🇵🇷" },
+  { name: "Heliot Ramos", team: "PR", flag: "🇵🇷" },
+  { name: "Willi Castro", team: "PR", flag: "🇵🇷" },
+  { name: "MJ Melendez", team: "PR", flag: "🇵🇷" },
+  { name: "Fernando Cruz", team: "PR", flag: "🇵🇷" },
+  { name: "Christian Vázquez", team: "PR", flag: "🇵🇷" },
+  { name: "Martín Maldonado", team: "PR", flag: "🇵🇷" },
+  { name: "Jorge López", team: "PR", flag: "🇵🇷" },
+  { name: "Eddie Rosario", team: "PR", flag: "🇵🇷" },
+  { name: "Emmanuel Rivera", team: "PR", flag: "🇵🇷" },
+  // Venezuela (VEN)
+  { name: "Ronald Acuña Jr.", team: "VEN", flag: "🇻🇪" },
+  { name: "Jackson Chourio", team: "VEN", flag: "🇻🇪" },
+  { name: "Salvador Perez", team: "VEN", flag: "🇻🇪" },
+  { name: "Luis Arráez", team: "VEN", flag: "🇻🇪" },
+  { name: "William Contreras", team: "VEN", flag: "🇻🇪" },
+  { name: "Andrés Giménez", team: "VEN", flag: "🇻🇪" },
+  { name: "Pablo López", team: "VEN", flag: "🇻🇪" },
+  { name: "Ranger Suarez", team: "VEN", flag: "🇻🇪" },
+  { name: "Maikel García", team: "VEN", flag: "🇻🇪" },
+  { name: "Germán Márquez", team: "VEN", flag: "🇻🇪" },
+  { name: "José Buttó", team: "VEN", flag: "🇻🇪" },
+  { name: "Eduardo Rodríguez", team: "VEN", flag: "🇻🇪" },
+  { name: "Eugenio Suarez", team: "VEN", flag: "🇻🇪" },
+  { name: "Ezequiel Tovar", team: "VEN", flag: "🇻🇪" },
+  { name: "Gleyber Torres", team: "VEN", flag: "🇻🇪" },
+  // Korea (KOR)
+  { name: "Ha-Seong Kim", team: "KOR", flag: "🇰🇷" },
+  { name: "Jung Hoo Lee", team: "KOR", flag: "🇰🇷" },
+  { name: "Tommy Edman", team: "KOR", flag: "🇰🇷" },
+  { name: "Ji Hwan Bae", team: "KOR", flag: "🇰🇷" },
+  // Canada (CAN)
+  { name: "Tyler O'Neill", team: "CAN", flag: "🇨🇦" },
+  { name: "Freddie Freeman", team: "CAN", flag: "🇨🇦" },
+  { name: "Josh Naylor", team: "CAN", flag: "🇨🇦" },
+  { name: "Bo Naylor", team: "CAN", flag: "🇨🇦" },
+  { name: "Edouard Julien", team: "CAN", flag: "🇨🇦" },
+  { name: "Nick Pivetta", team: "CAN", flag: "🇨🇦" },
+  { name: "Matt Brash", team: "CAN", flag: "🇨🇦" },
+  // Italy (ITA)
+  { name: "Vinnie Pasquantino", team: "ITA", flag: "🇮🇹" },
+  { name: "Sal Frelick", team: "ITA", flag: "🇮🇹" },
+  { name: "Nicky Lopez", team: "ITA", flag: "🇮🇹" },
+  { name: "David Fletcher", team: "ITA", flag: "🇮🇹" },
+  { name: "Dominic Fletcher", team: "ITA", flag: "🇮🇹" }
+];
+
+let currentUser = null;
+let adminMode = false;
+let cache = {};
+let resultsCache = {};
+let scoringCache = {};
+
+// ===== API =====
+async function fetchPicks(user) {
+  try { const r = await fetch('/api/picks/'+encodeURIComponent(user)); cache[user] = await r.json(); }
+  catch(e) { console.error(e); cache[user] = cache[user] || {}; }
+  return cache[user];
+}
+async function sendPicks(user, data) {
+  cache[user] = data;
+  try {
+    await fetch('/api/picks/'+encodeURIComponent(user), { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data) });
+    showSaveToast();
+  } catch(e) { console.error(e); }
+  refreshLeaderboard();
+}
+async function fetchResults() {
+  try { const r = await fetch('/api/results'); resultsCache = await r.json(); }
+  catch(e) { console.error(e); }
+  return resultsCache;
+}
+async function sendResults(data) {
+  resultsCache = data;
+  try {
+    await fetch('/api/results', { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data) });
+    showSaveToast();
+  } catch(e) { console.error(e); }
+  refreshLeaderboard();
+}
+async function fetchScoring() {
+  try { const r = await fetch('/api/scoring'); scoringCache = await r.json(); }
+  catch(e) { console.error(e); }
+  return scoringCache;
+}
+async function sendScoring(data) {
+  scoringCache = data;
+  try {
+    await fetch('/api/scoring', { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data) });
+    showSaveToast();
+  } catch(e) { console.error(e); }
+  refreshLeaderboard();
+}
+
+function getPicks(user) { return cache[user] || {}; }
+function getResults() { return resultsCache; }
+
+// ===== LEADERBOARD =====
+async function refreshLeaderboard() {
+  try {
+    const r = await fetch('/api/leaderboard');
+    const scores = await r.json();
+    renderLeaderboard(scores);
+  } catch(e) { console.error(e); }
+}
+
+function renderLeaderboard(scores) {
+  const el = document.getElementById('leaderboard');
+  if (!scores || scores.length === 0) {
+    el.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:20px;">No scores yet</div>';
+    return;
+  }
+  scores.sort((a,b) => b.score - a.score);
+  let html = '<table class="lb-table"><thead><tr><th class="rank">#</th><th>Name</th><th style="text-align:right">Score</th></tr></thead><tbody>';
+  scores.forEach((s, i) => {
+    const rank = i + 1;
+    const cls = rank === 1 ? ' class="first"' : '';
+    const crown = rank === 1 ? ' 👑' : '';
+    const picks = s.hasPicks ? '' : '<span class="no-picks"> (no picks yet)</span>';
+    html += `<tr${cls} onclick="selectUser('${s.name}')">
+      <td class="rank">${rank}</td>
+      <td>${s.name}${crown}${picks}</td>
+      <td style="text-align:right">${s.score} pts</td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  el.innerHTML = html;
+}
+
+// ===== INIT =====
+async function init() {
+  renderUserBar();
+  await Promise.all([fetchResults(), fetchScoring(), refreshLeaderboard()]);
+  const last = localStorage.getItem('wbc_last_user') || 'Leaderboard';
+  await selectUser(last);
+}
+
+// ===== MVP FIELD LOGIC =====
+function openMvpDropdown(inputId, dropId) {
+  renderMvpList('', dropId, inputId);
+  document.getElementById(dropId).classList.add('show');
+}
+
+function filterMvpDropdown(query, dropId, inputId) {
+  renderMvpList(query.toLowerCase(), dropId, inputId);
+}
+
+function renderMvpList(query, dropId, inputId) {
+  const drop = document.getElementById(dropId);
+  const filtered = MVP_PLAYERS.filter(p => p.name.toLowerCase().includes(query) || p.team.toLowerCase().includes(query));
+  
+  if (filtered.length === 0) {
+    drop.innerHTML = '<div class="cs-item" style="opacity:0.5; pointer-events:none;">No players found</div>';
+    return;
+  }
+  
+  drop.innerHTML = filtered.map(p => `
+    <div class="cs-item" onmousedown="selectMvp('${p.name.replace(/'/g, "\\'")}', '${inputId}', '${dropId}')">
+      <span class="cs-team">${p.flag} ${p.team}</span>
+      <span>${p.name}</span>
+    </div>
+  `).join('');
+}
+
+function selectMvp(playerName, inputId, dropId) {
+  document.getElementById(inputId).value = playerName;
+  document.getElementById(dropId).classList.remove('show');
+  if (inputId === 'actualMVP') saveActualTotals();
+  else saveTiebreakers();
+}
+
+function validateMvpInput(inputId) {
+  setTimeout(() => {
+    document.getElementById('tbMvpDropdown').classList.remove('show');
+    document.getElementById('actualMvpDropdown').classList.remove('show');
+    const input = document.getElementById(inputId);
+    const valid = MVP_PLAYERS.some(p => p.name.toLowerCase() === input.value.trim().toLowerCase());
+    
+    if (!valid && input.value.trim() !== '') {
+      // Revert to saved correct value or clear it
+      if (inputId === 'actualMVP') input.value = resultsCache.actualMVP || '';
+      else input.value = getPicks(currentUser).tbMVP || '';
+    }
+    
+    // Save state
+    if (inputId === 'actualMVP') saveActualTotals();
+    else saveTiebreakers();
+  }, 150);
+}
+
+// ===== USER BAR =====
+function renderUserBar() {
+  let html = `<button class="user-btn lb-btn" data-user="Leaderboard" onclick="selectUser('Leaderboard')">🏆 Leaderboard</button>`;
+  html += USERS.map(u =>
+    `<button class="user-btn" data-user="${u}" onclick="selectUser('${u}')">${u}</button>`
+  ).join('');
+  document.getElementById('userBar').innerHTML = html;
+}
+
+async function selectUser(user) {
+  currentUser = user;
+  localStorage.setItem('wbc_last_user', user);
+  adminMode = false;
+  document.querySelectorAll('.user-btn').forEach(b => b.classList.toggle('active', b.dataset.user === user));
+  
+  const lbCard = document.getElementById('leaderboardCard');
+  const bCard = document.getElementById('bracketCard');
+  const tCard = document.getElementById('tiebreakerCard');
+  const sCard = document.getElementById('scoringCard');
+  const aBar = document.getElementById('adminBar');
+
+  if (user === 'Leaderboard') {
+    lbCard.style.display = 'block';
+    bCard.style.display = 'none';
+    tCard.style.display = 'none';
+    sCard.style.display = 'none';
+    aBar.classList.remove('show');
+    refreshLeaderboard();
+  } else {
+    lbCard.style.display = 'none';
+    bCard.style.display = 'block';
+    tCard.style.display = 'block';
+    sCard.style.display = user === 'Russell' ? 'block' : 'none';
+    aBar.classList.toggle('show', user === 'Russell');
+    document.getElementById('adminToggle').classList.remove('active');
+    document.getElementById('bracketTitle').textContent = '🏆 Knockout Bracket';
+    await Promise.all([fetchPicks(user), fetchResults()]);
+    renderBracket();
+    loadTiebreakers();
+    if (user === 'Russell') loadScoringConfig();
+  }
+}
+
+async function toggleAdmin() {
+  adminMode = !adminMode;
+  document.getElementById('adminToggle').classList.toggle('active', adminMode);
+  document.getElementById('bracketTitle').textContent = adminMode ? '🔑 Enter Actual Results' : '🏆 Knockout Bracket';
+  document.getElementById('tiebreakerCard').style.display = adminMode ? 'none' : 'block';
+  if (adminMode) await fetchResults();
+  renderBracket();
+}
+
+// ===== BRACKET =====
+function renderBracket() {
+  const src = adminMode ? getResults() : getPicks(currentUser);
+  const results = getResults();
+  const bracket = document.getElementById('bracket');
+  const qfW = [src.qf0, src.qf1, src.qf2, src.qf3];
+  const sf0t = [qfW[0]||null, qfW[3]||null];
+  const sf1t = [qfW[1]||null, qfW[2]||null];
+  const sfW = [src.sf0, src.sf1];
+  const ft = [sfW[0]||null, sfW[1]||null];
+
+  bracket.innerHTML = `
+    <div class="round">
+      <div class="round-label">Quarterfinals</div>
+      ${QF.map((m,i) => renderMatchup('qf',i,m[0].k,m[1].k,src,results,m[0].s,m[1].s)).join('')}
+    </div>
+    <div class="connector"></div>
+    <div class="round">
+      <div class="round-label">Semifinals</div>
+      ${renderMatchup('sf',0,sf0t[0],sf0t[1],src,results)}
+      ${renderMatchup('sf',1,sf1t[0],sf1t[1],src,results)}
+    </div>
+    <div class="connector"></div>
+    <div class="round">
+      <div class="round-label">Championship</div>
+      ${renderMatchup('f',0,ft[0],ft[1],src,results)}
+    </div>
+  `;
+
+  const champBox = document.getElementById('championBox');
+  const champNameEl = document.getElementById('champName');
+  const champ = src.f0;
+  if (champ && TEAMS[champ]) {
+    champNameEl.textContent = TEAMS[champ].flag+' '+TEAMS[champ].name;
+    champBox.classList.add('filled');
+  } else {
+    champNameEl.textContent = '—';
+    champBox.classList.remove('filled');
+  }
+}
+
+function renderMatchup(round, idx, teamAKey, teamBKey, src, results, seedA = null, seedB = null) {
+  const key = round + idx;
+  const tA = teamAKey ? TEAMS[teamAKey] : null;
+  const tB = teamBKey ? TEAMS[teamBKey] : null;
+  const selected = src[key];
+  const actual = results[key];
+  const isFinal = round === 'f';
+  const showScore = isFinal || adminMode;
+
+  function teamRow(tKey, team, pos, seed) {
+    if (!team) return `<div class="team" style="opacity:0.3;cursor:default;"><span class="flag">❓</span><span class="name">TBD</span></div>`;
+    let cls = 'team', icon = '';
+    if (adminMode) {
+      if (selected === tKey) cls += ' selected';
+    } else {
+      if (selected === tKey) cls += ' selected';
+      if (actual && selected) {
+        if (selected === tKey) {
+          cls += actual === tKey ? ' correct' : ' wrong';
+          icon = actual === tKey ? '✅' : '❌';
+        } else if (actual === tKey) { cls += ' correct'; icon = '✅'; }
+      }
+    }
+    const scoreVal = src[key+'_score'+pos] ?? '';
+    const seedHtml = seed ? `<span class="seed">${seed}</span>` : '';
+    const scoreHtml = showScore ? `<input type="number" class="score-input" min="0" value="${scoreVal}" placeholder="–" onclick="event.stopPropagation()" oninput="saveScore('${key}_score${pos}',this.value)">` : '';
+    return `<div class="${cls}" onclick="pickTeam('${key}','${tKey}')">
+      ${seedHtml}
+      <span class="flag">${team.flag}</span>
+      <span class="name">${team.name}</span>
+      ${icon ? `<span class="result-icon">${icon}</span>` : ''}
+      ${scoreHtml}
+    </div>`;
+  }
+
+  return `<div class="matchup">
+    ${teamRow(teamAKey, tA, 'A', seedA)}
+    ${teamRow(teamBKey, tB, 'B', seedB)}
+  </div>`;
+}
+
+// ===== PICK & SCORE LOGIC =====
+async function pickTeam(key, teamKey) {
+  if (adminMode) {
+    const data = { ...getResults() };
+    data[key] = data[key] === teamKey ? undefined : teamKey;
+    if (data[key] === undefined) delete data[key];
+    cascadeClear(data, key);
+    resultsCache = data;
+    renderBracket();
+    await sendResults(data);
+  } else {
+    const data = { ...getPicks(currentUser) };
+    data[key] = data[key] === teamKey ? undefined : teamKey;
+    if (data[key] === undefined) delete data[key];
+    cascadeClear(data, key);
+    cache[currentUser] = data;
+    renderBracket();
+    await sendPicks(currentUser, data);
+  }
+}
+
+async function saveScore(field, value) {
+  if (adminMode) {
+    const data = { ...getResults() };
+    if (value === '') delete data[field]; else data[field] = Number(value);
+    resultsCache = data;
+    await sendResults(data);
+    if(currentUser === 'Russell') loadScoringConfig(); // update calc runs visually
+  } else {
+    const data = { ...getPicks(currentUser) };
+    if (value === '') delete data[field]; else data[field] = Number(value);
+    cache[currentUser] = data;
+    await sendPicks(currentUser, data);
+  }
+}
+
+function cascadeClear(data, changedKey) {
+  if (changedKey.startsWith('qf')) {
+    const idx = parseInt(changedKey[2]);
+    if (idx === 0 || idx === 3) {
+      const a = data.qf0||null, b = data.qf3||null;
+      if (data.sf0 && data.sf0 !== a && data.sf0 !== b) {
+        delete data.sf0; delete data.sf0_scoreA; delete data.sf0_scoreB;
+      }
+    }
+    if (idx === 1 || idx === 2) {
+      const a = data.qf1||null, b = data.qf2||null;
+      if (data.sf1 && data.sf1 !== a && data.sf1 !== b) {
+        delete data.sf1; delete data.sf1_scoreA; delete data.sf1_scoreB;
+      }
+    }
+    cascadeClear(data, 'sf0');
+    cascadeClear(data, 'sf1');
+  }
+  if (changedKey.startsWith('sf')) {
+    const a = data.sf0||null, b = data.sf1||null;
+    if (data.f0 && data.f0 !== a && data.f0 !== b) {
+      delete data.f0; delete data.f0_scoreA; delete data.f0_scoreB;
+    }
+  }
+}
+
+// ===== TIEBREAKERS =====
+function loadTiebreakers() {
+  const d = getPicks(currentUser);
+  document.getElementById('tbHR').value = d.tbHR ?? '';
+  document.getElementById('tbRuns').value = d.tbRuns ?? '';
+  document.getElementById('tbMVP').value = d.tbMVP ?? '';
+}
+
+async function saveTiebreakers() {
+  if (adminMode) return;
+  const data = { ...getPicks(currentUser) };
+  data.tbHR = document.getElementById('tbHR').value;
+  data.tbRuns = document.getElementById('tbRuns').value;
+  data.tbMVP = document.getElementById('tbMVP').value;
+  cache[currentUser] = data;
+  await sendPicks(currentUser, data);
+}
+
+// ===== SCORING CONFIG =====
+const SC_KEYS = ['correctQF','correctSF','correctF','winnerDiffQF','winnerDiffSF','winnerDiffF',
+                 'loserDiffQF','loserDiffSF','loserDiffF','totalRunsDiff','totalHRDiff','correctMVP'];
+
+function loadScoringConfig() {
+  SC_KEYS.forEach(k => {
+    const el = document.getElementById('sc_'+k);
+    if (el) el.value = scoringCache[k] ?? '';
+  });
+  document.getElementById('actualTotalHR').value = resultsCache.actualTotalHR ?? '';
+  document.getElementById('actualMVP').value = resultsCache.actualMVP ?? '';
+  
+  let calcRuns = 0;
+  Object.keys(resultsCache).forEach(k => {
+    if (k.includes('_score')) calcRuns += Number(resultsCache[k]) || 0;
+  });
+  document.getElementById('actualTotalRunsCalc').value = calcRuns || '';
+}
+
+async function saveScoring() {
+  const data = {};
+  SC_KEYS.forEach(k => {
+    const v = document.getElementById('sc_'+k).value;
+    if (v !== '') data[k] = Number(v);
+  });
+  await sendScoring(data);
+}
+
+async function saveActualTotals() {
+  const data = { ...getResults() };
+  const hr = document.getElementById('actualTotalHR').value;
+  const mvp = document.getElementById('actualMVP').value;
+  if (hr === '') delete data.actualTotalHR; else data.actualTotalHR = Number(hr);
+  if (mvp === '') delete data.actualMVP; else data.actualMVP = mvp;
+  resultsCache = data;
+  await sendResults(data);
+}
+
+// ===== SAVE TOAST =====
+let saveTimeout = null;
+function showSaveToast() {
+  const t = document.getElementById('saveToast');
+  t.classList.add('show');
+  clearTimeout(saveTimeout);
+  saveTimeout = setTimeout(() => t.classList.remove('show'), 1200);
+}
+
+// ===== GO =====
+init();
+// Auto-refresh leaderboard every 30s for live updates
+setInterval(refreshLeaderboard, 30000);
+</script>
+</body>
+</html>
