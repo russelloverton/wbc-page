@@ -1,4 +1,3 @@
-version: "3"
 services:
   wbc-bracket:
     build: .
@@ -9,8 +8,8 @@ services:
     volumes:
       - ./data.json:/usr/src/app/data.json
     networks:
-      - nw-proxy
+      - proxy-nw
 
 networks:
-  nw-proxy:
+  proxy-nw:
     external: true
