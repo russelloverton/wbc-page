@@ -8,3 +8,9 @@ services:
       - "7452:7452"
     volumes:
       - ./data.json:/usr/src/app/data.json
+    networks:
+      - nw-proxy
+
+networks:
+  nw-proxy:
+    external: true
