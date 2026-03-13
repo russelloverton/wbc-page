@@ -1,0 +1,10 @@
+version: "3"
+services:
+  wbc-bracket:
+    build: .
+    container_name: wbc-bracket
+    restart: unless-stopped
+    ports:
+      - "7452:7452"
+    volumes:
+      - ./data.json:/usr/src/app/data.json
