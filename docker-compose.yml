@@ -5,6 +5,8 @@ services:
     restart: unless-stopped
     ports:
       - "7452:7452"
+    environment:
+      - PORT=7452
     volumes:
       - ./data.json:/usr/src/app/data.json
     networks:
